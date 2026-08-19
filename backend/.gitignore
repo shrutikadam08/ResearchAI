@@ -1,0 +1,38 @@
+# Environment
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Uploaded files
+uploads/
+
+# Database/local data
+*.db
+*.sqlite3
+
+# Chroma/vector database
+chroma/
+chroma_db/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary / local vector data
+temp_alembic/
+vector_store/

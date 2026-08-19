@@ -1,17 +1,20 @@
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, Integer, String
+from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
 
+
 if TYPE_CHECKING:
     from app.models.project import Project
+    from app.models.message import Message
 
 
-class User(Base):
-    __tablename__ = "users"
+class Conversation(Base):
+
+    __tablename__ = "conversations"
 
     id: Mapped[int] = mapped_column(
         Integer,
@@ -19,41 +22,40 @@ class User(Base):
         index=True
     )
 
-    full_name: Mapped[str] = mapped_column(
-        String(100),
-        nullable=False
-    )
-
-    email: Mapped[str] = mapped_column(
-        String(255),
-        unique=True,
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            "projects.id",
+            ondelete="CASCADE"
+        ),
         nullable=False,
         index=True
     )
 
-    hashed_password: Mapped[str] = mapped_column(
+    title: Mapped[str] = mapped_column(
         String(255),
         nullable=False
     )
 
-    is_active: Mapped[bool] = mapped_column(
-        Boolean,
-        default=True
-    )
-
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow
+        default=datetime.utcnow,
+        nullable=False
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
-        onupdate=datetime.utcnow
+        onupdate=datetime.utcnow,
+        nullable=False
     )
 
-    projects: Mapped[list["Project"]] = relationship(
+    project: Mapped["Project"] = relationship(
         "Project",
-        back_populates="user",
+        back_populates="conversations"
+    )
+
+    messages: Mapped[list["Message"]] = relationship(
+        "Message",
+        back_populates="conversation",
         cascade="all, delete-orphan"
     )
