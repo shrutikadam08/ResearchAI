@@ -1,4 +1,7 @@
-from app.agent.tools.search_tool import search_papers
+from app.agent.tools.search_tool import (
+    search_papers,
+    search_papers_for_literature_review,
+)
 from app.agent.tools.comparison_tool import compare_papers
 from app.agent.tools.gap_tool import find_research_gaps
 from app.agent.tools.summary_tool import summarize_paper
@@ -39,6 +42,33 @@ Journal: {item.get("journal")}
 Page: {item.get("page_number")}
 
 Text:
+{item.get("text")}
+"""
+            )
+
+        return "\n".join(parts)
+
+    # ==================================================
+    # LITERATURE REVIEW
+    # ==================================================
+
+    if result_type == "literature_review":
+
+        evidence = result.get("evidence", [])
+        parts = []
+
+        for item in evidence:
+
+            parts.append(
+                f"""
+Paper ID: {item.get("document_id")}
+Paper Title: {item.get("title") or item.get("original_filename")}
+Authors: {item.get("authors")}
+Publication Year: {item.get("publication_year")}
+Journal: {item.get("journal")}
+Page: {item.get("page_number")}
+
+Evidence:
 {item.get("text")}
 """
             )
@@ -172,6 +202,17 @@ def _collect_sources(result):
                 "journal":item.get("journal")
             })
 
+    if result_type=="literature_review":
+        for item in result.get("evidence",[]):
+            sources.append({
+                "document_id":item["document_id"],
+                "page_number":item["page_number"],
+                "title":item.get("title"),
+                "authors":item.get("authors"),
+                "publication_year":item.get("publication_year"),
+                "journal":item.get("journal")
+            })
+
     elif result_type=="summary":
         for item in result.get("evidence",[]):
             sources.append({
@@ -248,7 +289,7 @@ def _format_citation_evidence(
 
     parts = []
 
-    if result_type in ["search", "summary"]:
+    if result_type in ["search", "summary", "literature_review"]:
 
         evidence = result.get(
             "evidence",
@@ -329,9 +370,23 @@ def run_agent(
 
     query_lower = query.lower()
 
+    print(
+        f"ResearchAI agent query: {query!r}"
+    )
+
     # ==================================================
-    # 1. RESEARCH GAP
+    # 1. LITERATURE REVIEW
     # ==================================================
+
+    literature_keywords = [
+        "literature review",
+        "literature survey",
+        "review the literature",
+        "generate literature",
+        "write a literature review",
+        "literature synthesis",
+        "literature",
+    ]
 
     gap_keywords = [
         "research gap",
@@ -346,6 +401,52 @@ def run_agent(
     ]
 
     if any(
+        keyword in query_lower
+        for keyword in literature_keywords
+    ):
+
+        print(
+            "LITERATURE REVIEW ROUTE SELECTED"
+        )
+
+        review_evidence = search_papers_for_literature_review(
+            project_id=project_id,
+            n_results_per_paper=4,
+            max_total=12,
+        )
+
+        print(
+            "Literature review evidence count:",
+            len(review_evidence)
+        )
+        print(
+            "Literature review document IDs:",
+            sorted({
+                item.get("document_id")
+                for item in review_evidence
+                if item.get("document_id") is not None
+            })
+        )
+
+        tool_result = {
+            "type": "literature_review",
+            "query": query,
+            "evidence": review_evidence,
+        }
+
+        # A normal gap/comparison query must never overwrite
+        # a literature-review result.
+        selected_query = (
+            "Write a concise academic literature review using ONLY "
+            "the provided research evidence. Cover the major themes, "
+            "methods, findings, similarities, differences, limitations, "
+            "and research gaps across the papers. Mention paper titles "
+            "when comparing studies. Put citation markers like [1] "
+            "immediately after claims supported by the matching evidence. "
+            "Do not invent information or use outside knowledge."
+        )
+
+    elif any(
         keyword in query_lower
         for keyword in gap_keywords
     ):
@@ -440,7 +541,11 @@ def run_agent(
     # ==================================================
 
     answer = generate_answer(
-        question=query,
+        question=(
+            selected_query
+            if "selected_query" in locals()
+            else query
+        ),
         evidence=formatted_evidence,
         conversation_history=conversation_history
     )

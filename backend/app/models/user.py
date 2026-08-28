@@ -8,6 +8,7 @@ from app.database.base import Base
 
 if TYPE_CHECKING:
     from app.models.project import Project
+    from app.models.saved_paper import SavedPaper
 
 
 class User(Base):
@@ -54,6 +55,12 @@ class User(Base):
 
     projects: Mapped[list["Project"]] = relationship(
         "Project",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+
+    saved_papers:Mapped[list["SavedPaper"]]=relationship(
+        "SavedPaper",
         back_populates="user",
         cascade="all, delete-orphan"
     )
