@@ -20,7 +20,7 @@ OLLAMA_MODEL = os.getenv(
 
 GEMINI_MODEL = os.getenv(
     "GEMINI_MODEL",
-    "gemini-3.7-flash"
+    "gemini-2.5-flash"
 )
 
 
