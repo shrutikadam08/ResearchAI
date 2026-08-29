@@ -94,7 +94,8 @@ def search_chunks_chroma(
     )
 
     query_embedding = generate_embeddings(
-        [query]
+        [query],
+        task_type="RETRIEVAL_QUERY"
     )[0]
 
     results = collection.query(
@@ -178,7 +179,8 @@ def search_chunks_pgvector(
 ):
 
     query_embedding = generate_embeddings(
-        [query]
+        [query],
+        task_type="RETRIEVAL_QUERY"
     )[0]
 
     query_vector = str(
