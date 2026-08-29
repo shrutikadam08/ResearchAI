@@ -1,6 +1,15 @@
+import os
 import chromadb
 
-CHROMA_PATH="chroma_db"
+from dotenv import load_dotenv
+
+from app.services.embedding_service import generate_embeddings
+load_dotenv()
+
+CHROMA_PATH=os.getenv(
+    "CHROMA_PATH",
+    "chroma_db"
+)
 
 client=chromadb.PersistentClient(
     path=CHROMA_PATH
@@ -43,8 +52,6 @@ def add_chunks(
         embeddings=embeddings,
         metadatas=metadatas
     )
-
-from app.services.embedding_service import generate_embeddings
 
 def search_chunks(
         project_id:int,
