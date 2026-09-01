@@ -145,24 +145,37 @@ def answer_node(
                     }
                 )
 
-
     # ========================================================
     # GENERATE ANSWER
     # ========================================================
+
+    print("\n========== ANSWER NODE ==========")
+    print(
+        "Raw evidence items:",
+        len(evidence)
+    )
+    print(
+        "Flattened evidence items:",
+        len(flattened)
+    )
+
+    for item in flattened[:5]:
+        print(
+            "Evidence:",
+            item.get("document_id"),
+            item.get("page_number"),
+            str(item.get("text", ""))[:100]
+        )
+
+    print("=================================\n")
 
     result = generate_research_answer(
         question=state["question"],
         evidence=flattened,
     )
 
-
     # ========================================================
     # PRESERVE ORIGINAL TOOL RESULT
-    #
-    # THIS IS THE IMPORTANT FIX.
-    #
-    # Do NOT replace the comparison/research-gap documents.
-    # Keep them so the frontend can open evidence.
     # ========================================================
 
     preserved_tool_result = {
@@ -181,9 +194,7 @@ def answer_node(
             ),
     }
 
-
     return {
-
         "answer":
             result.get(
                 "answer",
@@ -195,9 +206,7 @@ def answer_node(
 
         "evidence":
             flattened,
-
     }
-
 
 # ============================================================
 # ROUTER
@@ -366,31 +375,47 @@ def comparison_node(
     state: AgentState
 ):
 
+    print("\n========== COMPARISON NODE ==========")
+
+    paper_ids = state.get("paper_ids", [])
+
+    print("Project ID:", state["project_id"])
+    print("Paper IDs:", paper_ids)
+    print("Question:", state["question"])
+
     result = compare_papers(
-        project_id=
-            state["project_id"],
-
-        query=
-            state["question"],
-
-        n_results=6,
+        project_id=state["project_id"],
+        query=state["question"],
+        paper_ids=paper_ids,
+        n_results=10,
     )
-
 
     documents = result.get(
         "documents",
         []
     )
 
+    print("Comparison documents:", len(documents))
+
+    for document in documents:
+
+        print(
+            "Document:",
+            document.get("document_id"),
+            "Evidence:",
+            len(
+                document.get(
+                    "evidence",
+                    []
+                )
+            )
+        )
+
+    print("====================================\n")
 
     return {
-
-        "evidence":
-            documents,
-
-        "tool_result":
-            result,
-
+        "evidence": documents,
+        "tool_result": result,
     }
 
 

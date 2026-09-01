@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 
 import httpx
 from dotenv import load_dotenv
@@ -31,12 +32,47 @@ OPENALEX_API_KEY = os.getenv(
 
 
 # ============================================================
+# HTTP CONFIGURATION
+# ============================================================
+
+REQUEST_TIMEOUT = 30.0
+
+HTTP_HEADERS = {
+    "User-Agent": (
+        "ResearchAI/1.0 "
+        "(academic research project)"
+    ),
+    "Accept": "application/json",
+}
+
+
+PDF_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 "
+        "(Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 "
+        "(KHTML, like Gecko) "
+        "Chrome/151.0 Safari/537.36"
+    ),
+    "Accept": (
+        "application/pdf,"
+        "application/octet-stream,"
+        "text/html;q=0.9,*/*;q=0.8"
+    ),
+}
+
+
+# ============================================================
 # RECONSTRUCT ABSTRACT
 # ============================================================
 
 def reconstruct_abstract(
     inverted_index
 ):
+    """
+    Convert OpenAlex abstract_inverted_index
+    into normal readable text.
+    """
 
     if not inverted_index:
         return None
@@ -46,9 +82,10 @@ def reconstruct_abstract(
     for word, positions in (
         inverted_index.items()
     ):
+        if not positions:
+            continue
 
         for position in positions:
-
             words.append(
                 (
                     position,
@@ -67,28 +104,451 @@ def reconstruct_abstract(
 
 
 # ============================================================
+# CHECK WHETHER URL LOOKS LIKE A REAL PDF
+# ============================================================
+
+def is_pdf_url(
+    url: Optional[str]
+) -> bool:
+    """
+    Check whether a URL appears to point to
+    an actual PDF.
+
+    Important:
+    A URL ending with .pdf does NOT guarantee
+    that the server actually returns a PDF.
+    """
+
+    if not url:
+        return False
+
+    try:
+
+        with httpx.Client(
+            timeout=15.0,
+            follow_redirects=True,
+            headers=PDF_HEADERS,
+        ) as client:
+
+            response = client.get(
+                url
+            )
+
+        if response.status_code != 200:
+            print(
+                "PDF check failed:",
+                response.status_code,
+                url,
+            )
+            return False
+
+        content_type = (
+            response.headers
+            .get(
+                "content-type",
+                ""
+            )
+            .lower()
+        )
+
+        first_bytes = (
+            response.content[:5]
+            if response.content
+            else b""
+        )
+
+        # Real PDF normally starts with %PDF-
+        if first_bytes == b"%PDF-":
+            return True
+
+        if (
+            "application/pdf"
+            in content_type
+        ):
+            return True
+
+        print(
+            "URL did not return a PDF:",
+            url,
+            "Content-Type:",
+            content_type,
+        )
+
+        return False
+
+    except Exception as error:
+
+        print(
+            "PDF validation error:",
+            url,
+            error,
+        )
+
+        return False
+
+
+# ============================================================
+# FIND PMC / NCBI PDF
+# ============================================================
+
+def find_repository_pdf(
+    locations
+):
+    """
+    Prefer repository PDFs.
+
+    Priority:
+    1. PMC
+    2. NCBI
+    3. Other repositories
+    """
+
+    repository_candidates = []
+
+    for location in locations:
+
+        if not location:
+            continue
+
+        pdf_url = (
+            location.get(
+                "pdf_url"
+            )
+        )
+
+        if not pdf_url:
+            continue
+
+        landing_page = (
+            location.get(
+                "landing_page_url"
+            )
+            or ""
+        ).lower()
+
+        source = (
+            location.get(
+                "source"
+            )
+            or {}
+        )
+
+        source_name = (
+            source.get(
+                "display_name"
+            )
+            or ""
+        ).lower()
+
+        raw_source_name = (
+            location.get(
+                "raw_source_name"
+            )
+            or ""
+        ).lower()
+
+        combined = (
+            landing_page
+            + " "
+            + source_name
+            + " "
+            + raw_source_name
+            + " "
+            + pdf_url.lower()
+        )
+
+        # ----------------------------------------------------
+        # PMC / NCBI gets highest priority
+        # ----------------------------------------------------
+
+        if (
+            "pmc.ncbi.nlm.nih.gov"
+            in combined
+            or "ncbi.nlm.nih.gov/pmc"
+            in combined
+            or "pubmed central"
+            in combined
+        ):
+            repository_candidates.insert(
+                0,
+                pdf_url
+            )
+
+        # ----------------------------------------------------
+        # Other repository
+        # ----------------------------------------------------
+
+        elif (
+            location.get(
+                "source"
+            )
+            and location.get(
+                "source"
+            ).get(
+                "type"
+            ) == "repository"
+        ):
+            repository_candidates.append(
+                pdf_url
+            )
+
+    # --------------------------------------------------------
+    # Validate candidates
+    # --------------------------------------------------------
+
+    for candidate in repository_candidates:
+
+        print(
+            "Checking repository PDF:",
+            candidate
+        )
+
+        if is_pdf_url(
+            candidate
+        ):
+            print(
+                "Using repository PDF:",
+                candidate
+            )
+
+            return candidate
+
+    return None
+
+
+# ============================================================
+# FIND BEST PDF URL
+# ============================================================
+
+def find_pdf_url(
+    work
+):
+    """
+    Find the most useful downloadable PDF.
+
+    Priority:
+
+    1. PMC / NCBI repository
+    2. Other repository
+    3. Best OA PDF
+    4. Primary location PDF
+    5. Any remaining PDF
+
+    IMPORTANT:
+    OpenAlex may report a URL as a PDF even when
+    the publisher actually returns an HTML page.
+    Therefore every candidate is validated.
+    """
+
+    locations = (
+        work.get(
+            "locations"
+        )
+        or []
+    )
+
+    print(
+        "\nFinding PDF for:",
+        work.get(
+            "title"
+        )
+    )
+
+    # ========================================================
+    # 1. REPOSITORY
+    # ========================================================
+
+    repository_pdf = find_repository_pdf(
+        locations
+    )
+
+    if repository_pdf:
+
+        return repository_pdf
+
+
+    # ========================================================
+    # 2. OTHER REPOSITORY LOCATIONS
+    # ========================================================
+
+    for location in locations:
+
+        if not location:
+            continue
+
+        candidate_pdf = (
+            location.get(
+                "pdf_url"
+            )
+        )
+
+        if not candidate_pdf:
+            continue
+
+        source = (
+            location.get(
+                "source"
+            )
+            or {}
+        )
+
+        source_type = (
+            source.get(
+                "type"
+            )
+            or ""
+        ).lower()
+
+        if source_type != "repository":
+            continue
+
+        print(
+            "Checking repository:",
+            candidate_pdf
+        )
+
+        if is_pdf_url(
+            candidate_pdf
+        ):
+            return candidate_pdf
+
+
+    # ========================================================
+    # 3. BEST OA LOCATION
+    # ========================================================
+
+    best_oa_location = (
+        work.get(
+            "best_oa_location"
+        )
+        or {}
+    )
+
+    best_pdf = (
+        best_oa_location.get(
+            "pdf_url"
+        )
+    )
+
+    if best_pdf:
+
+        print(
+            "Checking best OA PDF:",
+            best_pdf
+        )
+
+        if is_pdf_url(
+            best_pdf
+        ):
+            return best_pdf
+
+        print(
+            "Best OA URL was not a real PDF."
+        )
+
+
+    # ========================================================
+    # 4. PRIMARY LOCATION
+    # ========================================================
+
+    primary_location = (
+        work.get(
+            "primary_location"
+        )
+        or {}
+    )
+
+    primary_pdf = (
+        primary_location.get(
+            "pdf_url"
+        )
+    )
+
+    if primary_pdf:
+
+        print(
+            "Checking primary PDF:",
+            primary_pdf
+        )
+
+        if is_pdf_url(
+            primary_pdf
+        ):
+            return primary_pdf
+
+
+    # ========================================================
+    # 5. ANY REMAINING PDF
+    # ========================================================
+
+    checked = set()
+
+    for location in locations:
+
+        if not location:
+            continue
+
+        candidate_pdf = (
+            location.get(
+                "pdf_url"
+            )
+        )
+
+        if not candidate_pdf:
+            continue
+
+        if candidate_pdf in checked:
+            continue
+
+        checked.add(
+            candidate_pdf
+        )
+
+        print(
+            "Checking remaining PDF:",
+            candidate_pdf
+        )
+
+        if is_pdf_url(
+            candidate_pdf
+        ):
+            return candidate_pdf
+
+
+    # ========================================================
+    # NO PDF
+    # ========================================================
+
+    print(
+        "No verified downloadable PDF found for:",
+        work.get(
+            "title"
+        )
+    )
+
+    return None
+
+
+# ============================================================
 # SEARCH PAPERS FROM OPENALEX
 # ============================================================
 
 async def search_papers_from_openalex(
-
     query: str,
-
     offset: int = 0,
-
     limit: int = 10,
-
     year: str | None = None,
-
     open_access_only: bool = False,
-
 ) -> PaperSearchResponse:
 
-    # --------------------------------------------------------
-    # Validate query
-    # --------------------------------------------------------
+    # ========================================================
+    # VALIDATE QUERY
+    # ========================================================
 
-    query = query.strip()
+    query = (
+        query
+        .strip()
+    )
 
     if not query:
 
@@ -97,9 +557,9 @@ async def search_papers_from_openalex(
         )
 
 
-    # --------------------------------------------------------
-    # Validate pagination
-    # --------------------------------------------------------
+    # ========================================================
+    # VALIDATE PAGINATION
+    # ========================================================
 
     if offset < 0:
 
@@ -120,18 +580,18 @@ async def search_papers_from_openalex(
         limit = 25
 
 
-    # --------------------------------------------------------
-    # Calculate OpenAlex page
-    # --------------------------------------------------------
+    # ========================================================
+    # CALCULATE PAGE
+    # ========================================================
 
     page = (
         offset // limit
     ) + 1
 
 
-    # --------------------------------------------------------
-    # Base parameters
-    # --------------------------------------------------------
+    # ========================================================
+    # BASE PARAMETERS
+    # ========================================================
 
     params = {
 
@@ -143,37 +603,38 @@ async def search_papers_from_openalex(
 
         "page":
             page,
-
     }
 
 
-    # --------------------------------------------------------
-    # OpenAlex API key
-    # --------------------------------------------------------
+    # ========================================================
+    # OPENALEX API KEY
+    # ========================================================
 
     if OPENALEX_API_KEY:
 
-        params["api_key"] = (
-            OPENALEX_API_KEY
-        )
+        params[
+            "api_key"
+        ] = OPENALEX_API_KEY
 
 
-    # --------------------------------------------------------
-    # Year filter
-    # --------------------------------------------------------
+    # ========================================================
+    # YEAR FILTER
+    # ========================================================
 
     if year:
 
-        year = year.strip()
-
+        year = (
+            year.strip()
+        )
 
         if "-" in year:
 
-            parts = year.split(
-                "-",
-                1
+            parts = (
+                year.split(
+                    "-",
+                    1
+                )
             )
-
 
             if len(parts) != 2:
 
@@ -182,7 +643,6 @@ async def search_papers_from_openalex(
                     "Use YYYY-YYYY."
                 )
 
-
             start_year = (
                 parts[0].strip()
             )
@@ -190,7 +650,6 @@ async def search_papers_from_openalex(
             end_year = (
                 parts[1].strip()
             )
-
 
             if (
                 not start_year.isdigit()
@@ -202,17 +661,14 @@ async def search_papers_from_openalex(
                     "Use YYYY-YYYY."
                 )
 
-
-            params["filter"] = (
-
+            params[
+                "filter"
+            ] = (
                 "from_publication_date:"
                 f"{start_year}-01-01,"
-
                 "to_publication_date:"
                 f"{end_year}-12-31"
-
             )
-
 
         else:
 
@@ -222,76 +678,95 @@ async def search_papers_from_openalex(
                     "Invalid publication year."
                 )
 
-
-            params["filter"] = (
-
+            params[
+                "filter"
+            ] = (
                 "publication_year:"
                 f"{year}"
-
             )
 
 
-    # --------------------------------------------------------
-    # Open access filter
-    # --------------------------------------------------------
+    # ========================================================
+    # OPEN ACCESS FILTER
+    # ========================================================
 
     if open_access_only:
 
         if "filter" in params:
 
-            params["filter"] += (
+            params[
+                "filter"
+            ] += (
                 ",open_access.is_oa:true"
             )
 
         else:
 
-            params["filter"] = (
+            params[
+                "filter"
+            ] = (
                 "open_access.is_oa:true"
             )
 
 
-    # --------------------------------------------------------
-    # Headers
-    # --------------------------------------------------------
+    # ========================================================
+    # DEBUG
+    # ========================================================
 
-    headers = {
+    print(
+        "\n========================================"
+    )
 
-        "User-Agent":
-            (
-                "ResearchAI/1.0 "
-                "(academic research project)"
-            ),
+    print(
+        "OPENALEX SEARCH"
+    )
 
-        "Accept":
-            "application/json",
+    print(
+        "Query:",
+        query
+    )
 
-    }
+    print(
+        "Offset:",
+        offset
+    )
+
+    print(
+        "Limit:",
+        limit
+    )
+
+    print(
+        "Year:",
+        year
+    )
+
+    print(
+        "Open access only:",
+        open_access_only
+    )
+
+    print(
+        "========================================\n"
+    )
 
 
-    # --------------------------------------------------------
-    # Call OpenAlex
-    # --------------------------------------------------------
+    # ========================================================
+    # CALL OPENALEX
+    # ========================================================
 
     try:
 
         async with httpx.AsyncClient(
-
-            timeout=30.0,
-
+            timeout=REQUEST_TIMEOUT,
             follow_redirects=True,
-
         ) as client:
 
             response = await client.get(
-
                 OPENALEX_WORKS_URL,
-
                 params=params,
-
-                headers=headers,
-
+                headers=HTTP_HEADERS,
             )
-
 
     except httpx.TimeoutException:
 
@@ -299,7 +774,6 @@ async def search_papers_from_openalex(
             "OpenAlex request timed out. "
             "Please try again."
         )
-
 
     except httpx.RequestError as error:
 
@@ -309,15 +783,14 @@ async def search_papers_from_openalex(
         )
 
 
-    # --------------------------------------------------------
-    # Handle OpenAlex errors
-    # --------------------------------------------------------
+    # ========================================================
+    # HANDLE OPENALEX ERRORS
+    # ========================================================
 
     if response.status_code != 200:
 
         print(
-            "\n"
-            "========================================"
+            "\n========================================"
         )
 
         print(
@@ -345,8 +818,7 @@ async def search_papers_from_openalex(
         )
 
         print(
-            "========================================"
-            "\n"
+            "========================================\n"
         )
 
 
@@ -396,9 +868,9 @@ async def search_papers_from_openalex(
         )
 
 
-    # --------------------------------------------------------
-    # Parse JSON
-    # --------------------------------------------------------
+    # ========================================================
+    # PARSE JSON
+    # ========================================================
 
     try:
 
@@ -420,9 +892,9 @@ async def search_papers_from_openalex(
         )
 
 
-    # --------------------------------------------------------
-    # Build paper results
-    # --------------------------------------------------------
+    # ========================================================
+    # BUILD PAPER RESULTS
+    # ========================================================
 
     results = []
 
@@ -431,7 +903,6 @@ async def search_papers_from_openalex(
         "results",
         []
     ):
-
 
         # ====================================================
         # AUTHORS
@@ -451,20 +922,18 @@ async def search_papers_from_openalex(
                 )
             )
 
-
             if not author:
-
                 continue
 
 
             authors.append(
-
                 PaperAuthor(
 
-                    author_id=
+                    author_id=(
                         author.get(
                             "id"
-                        ),
+                        )
+                    ),
 
                     name=(
                         author.get(
@@ -473,9 +942,7 @@ async def search_papers_from_openalex(
                         or
                         "Unknown Author"
                     ),
-
                 )
-
             )
 
 
@@ -493,48 +960,57 @@ async def search_papers_from_openalex(
 
 
         # ====================================================
-        # BEST OPEN ACCESS LOCATION
+        # PDF URL
         # ====================================================
 
-        pdf_url = None
-
-
-        best_oa_location = (
-            work.get(
-                "best_oa_location"
-            )
+        pdf_url = find_pdf_url(
+            work
         )
 
 
-        if best_oa_location:
+        # ====================================================
+        # DEBUG
+        # ====================================================
 
-            pdf_url = (
-                best_oa_location.get(
-                    "pdf_url"
-                )
+        print(
+            "\n----------------------------------------"
+        )
+
+        print(
+            "Paper:",
+            work.get(
+                "title"
             )
+        )
 
+        print(
+            "OpenAlex ID:",
+            work.get(
+                "id"
+            )
+        )
 
-        # ====================================================
-        # FALLBACK PDF LOCATION
-        # ====================================================
+        print(
+            "PDF URL:",
+            pdf_url
+        )
 
-        if not pdf_url:
-
-            primary_location = (
+        print(
+            "Open Access:",
+            (
                 work.get(
-                    "primary_location"
+                    "open_access"
                 )
+                or {}
+            ).get(
+                "is_oa",
+                False
             )
+        )
 
-
-            if primary_location:
-
-                pdf_url = (
-                    primary_location.get(
-                        "pdf_url"
-                    )
-                )
+        print(
+            "----------------------------------------"
+        )
 
 
         # ====================================================
@@ -604,12 +1080,10 @@ async def search_papers_from_openalex(
 
 
         is_open_access = bool(
-
             open_access.get(
                 "is_oa",
                 False
             )
-
         )
 
 
@@ -625,7 +1099,6 @@ async def search_papers_from_openalex(
 
 
         if not work_id:
-
             continue
 
 
@@ -634,7 +1107,6 @@ async def search_papers_from_openalex(
         # ====================================================
 
         results.append(
-
             PaperSearchResult(
 
                 paper_id=str(
@@ -677,17 +1149,16 @@ async def search_papers_from_openalex(
 
                 pdf_url=pdf_url,
 
-                is_open_access=
-                    is_open_access,
-
+                is_open_access=(
+                    is_open_access
+                ),
             )
-
         )
 
 
-    # --------------------------------------------------------
-    # Metadata
-    # --------------------------------------------------------
+    # ========================================================
+    # METADATA
+    # ========================================================
 
     meta = (
         data.get(
@@ -704,9 +1175,9 @@ async def search_papers_from_openalex(
     )
 
 
-    # --------------------------------------------------------
-    # Return response
-    # --------------------------------------------------------
+    # ========================================================
+    # RETURN RESPONSE
+    # ========================================================
 
     return PaperSearchResponse(
 
@@ -721,5 +1192,4 @@ async def search_papers_from_openalex(
         ),
 
         results=results,
-
     )

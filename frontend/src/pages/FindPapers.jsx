@@ -116,6 +116,9 @@ function FindPapers() {
   const [query, setQuery] =
     useState(initialQuery);
 
+  const [openAccessOnly, setOpenAccessOnly] =
+  useState(false);
+
 
   const [papers, setPapers] =
     useState([]);
@@ -360,7 +363,7 @@ function FindPapers() {
               "",
 
             openAccessOnly:
-              false,
+              openAccessOnly,
 
             token:
               token || undefined,
@@ -1626,6 +1629,25 @@ function FindPapers() {
 
           </div>
 
+
+          {/* ====================================================
+              OPEN ACCESS FILTER
+          ==================================================== */}
+
+          <label className="mt-4 flex items-center gap-3 w-fit cursor-pointer">
+            <input
+              type="checkbox"
+              checked={openAccessOnly}
+              onChange={(event) =>
+                setOpenAccessOnly(event.target.checked)
+              }
+              className="h-4 w-4 rounded border-slate-600 bg-slate-800"
+            />
+            <span className="text-sm text-slate-300">
+              Open Access only
+            </span>
+          </label>
+
         </form>
 
 
@@ -2056,6 +2078,52 @@ function FindPapers() {
 
                       </div>
 
+                      {/* =========================================
+    ACCESS STATUS
+========================================= */}
+
+<div className="mt-4">
+  {paper.is_open_access ? (
+    <span
+      className="
+        inline-flex
+        items-center
+        gap-2
+        rounded-lg
+        border
+        border-green-500/30
+        bg-green-500/10
+        px-3
+        py-1.5
+        text-sm
+        font-medium
+        text-green-400
+      "
+    >
+      Open Access
+    </span>
+  ) : (
+    <span
+      className="
+        inline-flex
+        items-center
+        gap-2
+        rounded-lg
+        border
+        border-yellow-500/30
+        bg-yellow-500/10
+        px-3
+        py-1.5
+        text-sm
+        font-medium
+        text-yellow-400
+      "
+    >
+      Not Open Access
+    </span>
+  )}
+</div>
+
 
                       {/* =========================================
                           ABSTRACT
@@ -2261,61 +2329,20 @@ function FindPapers() {
                         {/* =====================================
                             PDF LINK
                         ===================================== */}
+{paper.pdf_url && (
+  <a
+    href={paper.pdf_url}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="flex items-center gap-2 rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-300 hover:bg-slate-700 transition"
+  >
+    <FileText size={17} />
+    {paper.is_open_access ? "Open Access PDF" : "PDF"}
+  </a>
+)}
 
-                        {paper.pdf_url && (
-
-                          <a
-                            href={
-                              paper.pdf_url
-                            }
-                            target="_blank"
-                            rel="noreferrer"
-                            className="
-                              flex
-                              items-center
-                              gap-2
-                              px-4
-                              py-2.5
-                              rounded-xl
-                              bg-slate-800
-                              text-slate-300
-                              hover:bg-slate-700
-                              transition
-                            "
-                          >
-
-                            <FileText
-                              size={17}
-                            />
-
-                            PDF
-
-                          </a>
-
-                        )}
-
+                       
                       </div>
-
-
-                      {/* =========================================
-                          OPEN ACCESS
-                      ========================================= */}
-
-                      {paper.is_open_access && (
-
-                        <div
-                          className="
-                            mt-4
-                            text-xs
-                            text-green-400
-                          "
-                        >
-
-                          ✓ Open Access
-
-                        </div>
-
-                      )}
 
                     </article>
 

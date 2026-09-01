@@ -36,6 +36,7 @@ import {
 import {
   getProject,
   getProjectPapers,
+  getProjectDocuments,
   removePaperFromProject,
   createConversation,
   getConversations,
@@ -77,6 +78,11 @@ function ProjectDetails() {
     setPapers,
   ] = useState([]);
 
+  const [
+    documents,
+    setDocuments,
+  ]=useState([]);
+
 
   const [
     loading,
@@ -96,38 +102,6 @@ function ProjectDetails() {
   ] = useState(null);
 
 
-  // ==========================================================
-  // EDIT PROJECT
-  // ==========================================================
-
-  const [
-    editOpen,
-    setEditOpen,
-  ] = useState(false);
-
-
-  const [
-    editTitle,
-    setEditTitle,
-  ] = useState("");
-
-
-  const [
-    editDescription,
-    setEditDescription,
-  ] = useState("");
-
-
-  const [
-    editLoading,
-    setEditLoading,
-  ] = useState(false);
-
-
-  const [
-    editError,
-    setEditError,
-  ] = useState("");
 
 
   // ==========================================================
@@ -299,6 +273,7 @@ function ProjectDetails() {
           const [
             projectData,
             paperData,
+            documentData,
             conversationData,
           ] = await Promise.all([
 
@@ -310,9 +285,11 @@ function ProjectDetails() {
               projectId
             ),
 
-            getConversations(
+            getProjectDocuments(
               projectId
             ),
+
+            getConversations(projectId),
 
           ]);
 
@@ -328,6 +305,20 @@ function ProjectDetails() {
             )
               ? paperData
               : []
+
+
+          );
+
+          setDocuments(
+            Array.isArray(documentData)
+            ? documentData
+            : []
+          );
+
+          setConversations(
+            Array.isArray(conversationData)
+            ? conversationData
+            : []
           );
 
 
@@ -403,11 +394,29 @@ function ProjectDetails() {
           }
 
 
-          setError(
-            requestError?.response?.data?.detail ||
-            "Unable to load this project."
-          );
+        const detail = requestError?.response?.data?.detail;
 
+let errorMessage = "Unable to load this project.";
+
+if (typeof detail === "string") {
+  errorMessage = detail;
+} else if (Array.isArray(detail)) {
+  const messages = detail
+    .map((item) => {
+      if (typeof item === "string") {
+        return item;
+      }
+
+      return item?.msg || "";
+    })
+    .filter(Boolean);
+
+  if (messages.length > 0) {
+    errorMessage = messages.join(", ");
+  }
+}
+
+setError(errorMessage);
         } finally {
 
           setLoading(
@@ -600,6 +609,35 @@ function ProjectDetails() {
 
     };
 
+
+  // ==========================================================
+// EDIT PROJECT STATE
+// ==========================================================
+
+const [
+  editOpen,
+  setEditOpen,
+] = useState(false);
+
+const [
+  editTitle,
+  setEditTitle,
+] = useState("");
+
+const [
+  editDescription,
+  setEditDescription,
+] = useState("");
+
+const [
+  editLoading,
+  setEditLoading,
+] = useState(false);
+
+const [
+  editError,
+  setEditError,
+] = useState("");
 
   // ==========================================================
   // EDIT PROJECT
@@ -922,6 +960,7 @@ This action cannot be undone.`
     };
 
 
+
   // ==========================================================
   // REMOVE PAPER
   // ==========================================================
@@ -1227,7 +1266,8 @@ Clearly identify which paper each point belongs to.
         const response =
           await askProject(
             projectId,
-            question
+            question,
+            selectedPaperIds
           );
 
 
@@ -3840,7 +3880,6 @@ This will permanently delete this conversation and its messages. Your project an
 
         </section>
 
-
         {/* ====================================================
             PROJECT PAPERS
         ==================================================== */}
@@ -4168,38 +4207,6 @@ This will permanently delete this conversation and its messages. Your project an
 
                         )}
 
-
-                        {paper.pdf_url && (
-
-                          <a
-                            href={
-                              paper.pdf_url
-                            }
-                            target="_blank"
-                            rel="noreferrer"
-                            className="
-                              flex
-                              items-center
-                              gap-2
-                              rounded-xl
-                              bg-slate-100
-                              px-4
-                              py-2.5
-                              text-sm
-                              font-medium
-                              text-slate-700
-                            "
-                          >
-
-                            <FileText
-                              size={16}
-                            />
-
-                            PDF
-
-                          </a>
-
-                        )}
 
 
                         <button

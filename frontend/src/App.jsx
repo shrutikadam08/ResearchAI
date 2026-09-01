@@ -1,238 +1,86 @@
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Navigate,
-  useLocation,
-} from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 
+import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
-import CreateProject from "./pages/CreateProject";
+import FindPapers from "./pages/FindPapers";
 import Library from "./pages/Library";
-import PaperAnalysis from "./pages/PaperAnalysis";
+import CreateProject from "./pages/CreateProject";
 import ProjectDetails from "./pages/ProjectDetails";
-import Home from "./pages/Home";
-
-
-// ============================================================
-// AUTH
-// ============================================================
-
-const isAuthenticated =
-  () => {
-
-    return Boolean(
-      localStorage.getItem(
-        "access_token"
-      )
-    );
-
-  };
-
-
-// ============================================================
-// PROTECTED ROUTE
-// ============================================================
-
-function ProtectedRoute({
-  children,
-}) {
-
-  const location =
-    useLocation();
-
-
-  if (
-    !isAuthenticated()
-  ) {
-
-    return (
-      <Navigate
-        to="/login"
-        replace
-        state={{
-          from:
-            location.pathname +
-            location.search,
-        }}
-      />
-    );
-
-  }
-
-
-  return children;
-
-}
-
-
-// ============================================================
-// PUBLIC ROUTE
-// ============================================================
-
-function PublicRoute({
-  children,
-}) {
-
-  if (
-    isAuthenticated()
-  ) {
-
-    return (
-      <Navigate
-        to="/dashboard"
-        replace
-      />
-    );
-
-  }
-
-
-  return children;
-
-}
-
-
-// ============================================================
-// APP
-// ============================================================
+import PaperAnalysis from "./pages/PaperAnalysis";
+import ResetPassword from "./pages/ResetPassword";
 
 function App() {
-
   return (
-
     <BrowserRouter>
-
       <Routes>
 
-        {/* LANDING */}
-
+        {/* HOME */}
         <Route
           path="/"
-          element={
-            <Home />
-          }
+          element={<Home />}
         />
 
-
-        {/* LOGIN */}
-
+        {/* AUTHENTICATION */}
         <Route
           path="/login"
-          element={
-            <PublicRoute>
-              <Login />
-            </PublicRoute>
-          }
+          element={<Login />}
         />
-
-
-        {/* REGISTER */}
 
         <Route
           path="/register"
-          element={
-            <PublicRoute>
-              <Register />
-            </PublicRoute>
-          }
+          element={<Register />}
         />
 
+        <Route
+          path="/reset-password"
+          element={<ResetPassword />}
+        />
 
-        {/* DASHBOARD */}
-
+        {/* MAIN PAGES */}
         <Route
           path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
+          element={<Dashboard />}
         />
-
-
-        {/* CREATE PROJECT */}
-
-        <Route
-          path="/projects/new"
-          element={
-            <ProtectedRoute>
-              <CreateProject />
-            </ProtectedRoute>
-          }
-        />
-
-
-        {/* PROJECT WORKSPACE */}
-
-        <Route
-          path="/projects/:projectId"
-          element={
-            <ProtectedRoute>
-              <ProjectDetails />
-            </ProtectedRoute>
-          }
-        />
-
-
-        {/* LIBRARY */}
-
-        <Route
-          path="/library"
-          element={
-            <ProtectedRoute>
-              <Library />
-            </ProtectedRoute>
-          }
-        />
-
-
-        {/* PAPER ANALYSIS */}
-
-        <Route
-          path="/paper-analysis"
-          element={
-            <ProtectedRoute>
-              <PaperAnalysis />
-            </ProtectedRoute>
-          }
-        />
-
-
-        {/* OLD FIND PAPERS URL */}
 
         <Route
           path="/find-papers"
-          element={
-            <Navigate
-              to="/dashboard"
-              replace
-            />
-          }
+          element={<FindPapers />}
         />
 
+        <Route
+          path="/library"
+          element={<Library />}
+        />
 
-        {/* UNKNOWN */}
+        {/* CREATE PROJECT */}
+        <Route
+          path="/projects/new"
+          element={<CreateProject />}
+        />
 
+        {/* PROJECT DETAILS */}
+        <Route
+          path="/projects/:projectId"
+          element={<ProjectDetails />}
+        />
+
+        {/* PAPER ANALYSIS */}
+        <Route
+          path="/paper-analysis"
+          element={<PaperAnalysis />}
+        />
+
+        {/* FALLBACK */}
         <Route
           path="*"
-          element={
-            <Navigate
-              to="/"
-              replace
-            />
-          }
+          element={<Home />}
         />
 
       </Routes>
-
     </BrowserRouter>
-
   );
-
 }
-
 
 export default App;

@@ -61,14 +61,6 @@ function Dashboard() {
     useRef(null);
 
 
-  // Prevent duplicate initial API calls in React StrictMode
-  const projectsLoadedRef =
-    useRef(false);
-
-  const savedPapersLoadedRef =
-    useRef(false);
-
-
   // ==========================================================
   // PROJECTS
   // ==========================================================
@@ -83,12 +75,6 @@ function Dashboard() {
     loadingProjects,
     setLoadingProjects,
   ] = useState(true);
-
-
-  const [
-    projectsOpen,
-    setProjectsOpen,
-  ] = useState(false);
 
 
   // ==========================================================
@@ -123,6 +109,12 @@ function Dashboard() {
     searchError,
     setSearchError,
   ] = useState("");
+
+  // Open Access filter
+  const [
+    openAccessOnly,
+    setOpenAccessOnly,
+  ] = useState(false);
 
 
   // ==========================================================
@@ -231,12 +223,6 @@ function Dashboard() {
 
   useEffect(() => {
 
-    if (projectsLoadedRef.current) {
-      return;
-    }
-
-    projectsLoadedRef.current = true;
-
     const loadProjects =
       async () => {
 
@@ -310,12 +296,6 @@ function Dashboard() {
   // ==========================================================
 
   useEffect(() => {
-
-    if (savedPapersLoadedRef.current) {
-      return;
-    }
-
-    savedPapersLoadedRef.current = true;
 
     const loadSavedPapers =
       async () => {
@@ -589,7 +569,7 @@ function Dashboard() {
               "",
 
             openAccessOnly:
-              false,
+              openAccessOnly,
 
             token:
               token ||
@@ -1744,11 +1724,11 @@ function Dashboard() {
             <button
               type="button"
               onClick={() =>
-                setProjectsOpen(
-                  (previous) => !previous
+                navigate(
+                  "/projects/new"
                 )
               }
-              className={`
+              className="
                 flex
                 w-full
                 items-center
@@ -1757,181 +1737,20 @@ function Dashboard() {
                 px-3
                 py-2.5
                 text-sm
+                text-slate-500
                 transition
                 hover:bg-slate-50
                 hover:text-slate-900
-                ${
-                  projectsOpen
-                    ? "bg-slate-50 text-slate-900 font-medium"
-                    : "text-slate-500"
-                }
-              `}
+              "
             >
 
               <FolderOpen
                 size={18}
               />
 
-              <span className="flex-1 text-left">
-                Projects
-              </span>
-
-              <span
-                className={`
-                  text-xs
-                  transition-transform
-                  ${
-                    projectsOpen
-                      ? "rotate-90 text-slate-700"
-                      : "text-slate-400"
-                  }
-                `}
-              >
-                ›
-              </span>
+              Projects
 
             </button>
-
-
-            {projectsOpen && (
-
-              <div
-                className="
-                  mt-1
-                  space-y-1
-                  pl-2
-                "
-              >
-
-                {loadingProjects ? (
-
-                  <div
-                    className="
-                      rounded-lg
-                      px-3
-                      py-2
-                      text-xs
-                      text-slate-400
-                    "
-                  >
-                    Loading projects...
-                  </div>
-
-                ) : projects.length > 0 ? (
-
-                  <div
-                    className="
-                      max-h-40
-                      space-y-1
-                      overflow-y-auto
-                      pr-1
-                    "
-                  >
-
-                    {projects.map(
-                      (project) => (
-
-                        <button
-                          key={project.id}
-                          type="button"
-                          onClick={() =>
-                            navigate(
-                              `/projects/${project.id}`
-                            )
-                          }
-                          className="
-                            flex
-                            w-full
-                            items-center
-                            gap-2
-                            rounded-lg
-                            px-3
-                            py-2
-                            text-left
-                            text-xs
-                            text-slate-500
-                            transition
-                            hover:bg-white
-                            hover:text-slate-900
-                          "
-                          title={project.title}
-                        >
-
-                          <span
-                            className="
-                              h-1.5
-                              w-1.5
-                              shrink-0
-                              rounded-full
-                              bg-slate-300
-                            "
-                          />
-
-                          <span
-                            className="truncate"
-                          >
-                            {project.title ||
-                              "Untitled Project"}
-                          </span>
-
-                        </button>
-
-                      )
-                    )}
-
-                  </div>
-
-                ) : (
-
-                  <div
-                    className="
-                      rounded-lg
-                      px-3
-                      py-2
-                      text-xs
-                      text-slate-400
-                    "
-                  >
-                    No projects yet.
-                  </div>
-
-                )}
-
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    navigate(
-                      "/projects/new"
-                    )
-                  }
-                  className="
-                    flex
-                    w-full
-                    items-center
-                    gap-2
-                    rounded-lg
-                    px-3
-                    py-2
-                    text-xs
-                    font-medium
-                    text-slate-700
-                    transition
-                    hover:bg-white
-                  "
-                >
-
-                  <Plus
-                    size={14}
-                  />
-
-                  New Project
-
-                </button>
-
-              </div>
-
-            )}
 
           </div>
 
@@ -2395,6 +2214,26 @@ function Dashboard() {
 
             </form>
 
+            <div className="mt-4 flex items-center justify-between gap-4 flex-wrap">
+              <label className="inline-flex items-center gap-2 cursor-pointer text-sm text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={openAccessOnly}
+                  onChange={(event) =>
+                    setOpenAccessOnly(event.target.checked)
+                  }
+                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span>Open Access only</span>
+              </label>
+
+              <span className="text-xs text-slate-400">
+                {openAccessOnly
+                  ? "Showing papers with free full-text access when available"
+                  : "Showing all matching papers"}
+              </span>
+            </div>
+
 
             {searchError && (
 
@@ -2803,6 +2642,19 @@ function Dashboard() {
                             )}
 
 
+                            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+                              {paper.is_open_access ? (
+                                <span className="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-3 py-1 font-medium text-green-700">
+                                  ✓ Open Access
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 font-medium text-slate-500">
+                                  🔒 Not Open Access
+                                </span>
+                              )}
+                            </div>
+
+
                             <div
                               className="
                                 mt-5
@@ -2979,7 +2831,9 @@ function Dashboard() {
                                     size={16}
                                   />
 
-                                  PDF
+                                  {paper.is_open_access
+                                    ? "Open Access PDF"
+                                    : "PDF"}
 
                                 </a>
 
@@ -2997,6 +2851,165 @@ function Dashboard() {
                   </div>
 
                 )}
+
+            </section>
+
+          )}
+
+
+          {/* ==================================================
+              OVERVIEW
+          ================================================== */}
+
+          {!searched && (
+
+            <section
+              className="
+                mt-8
+                grid
+                grid-cols-1
+                gap-4
+                sm:grid-cols-3
+              "
+            >
+
+              <div
+                className="
+                  rounded-2xl
+                  border
+                  border-slate-200
+                  bg-white
+                  p-5
+                "
+              >
+
+                <FolderOpen
+                  size={19}
+                />
+
+                <p
+                  className="
+                    mt-5
+                    text-sm
+                    text-slate-400
+                  "
+                >
+                  Research projects
+                </p>
+
+
+                <p
+                  className="
+                    mt-1
+                    text-2xl
+                    font-semibold
+                  "
+                >
+                  {projects.length}
+                </p>
+
+              </div>
+
+
+              <div
+                className="
+                  rounded-2xl
+                  border
+                  border-slate-200
+                  bg-white
+                  p-5
+                "
+              >
+
+                <BookOpen
+                  size={19}
+                />
+
+                <p
+                  className="
+                    mt-5
+                    text-sm
+                    text-slate-400
+                  "
+                >
+                  Saved papers
+                </p>
+
+
+                <p
+                  className="
+                    mt-1
+                    text-2xl
+                    font-semibold
+                  "
+                >
+                  {savedPaperIds.size}
+                </p>
+
+              </div>
+
+
+              <div
+                className="
+                  rounded-2xl
+                  border
+                  border-slate-200
+                  bg-white
+                  p-5
+                "
+              >
+
+                <Search
+                  size={19}
+                />
+
+                <p
+                  className="
+                    mt-5
+                    text-sm
+                    text-slate-400
+                  "
+                >
+                  Recent searches
+                </p>
+
+
+                <p
+                  className="
+                    mt-1
+                    text-2xl
+                    font-semibold
+                  "
+                >
+                  {(() => {
+
+                    try {
+
+                      const history =
+                        JSON.parse(
+                          localStorage.getItem(
+                            "researchai_search_history"
+                          ) ||
+                          "[]"
+                        );
+
+
+                      return Array.isArray(
+                        history
+                      )
+                        ? history.length
+                        : 0;
+
+                    } catch {
+
+                      return 0;
+
+                    }
+
+                  })()}
+                </p>
+
+              </div>
 
             </section>
 

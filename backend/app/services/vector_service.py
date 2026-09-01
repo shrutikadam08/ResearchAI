@@ -107,6 +107,62 @@ def search_chunks_chroma(
 
     return results
 
+def search_chunks_chroma_by_documents(
+    project_id: int,
+    query: str,
+    document_ids: list[int],
+    n_results_per_document: int = 5
+):
+    collection = get_collection(
+        project_id
+    )
+
+    query_embedding = generate_embeddings(
+        [query],
+        task_type="RETRIEVAL_QUERY"
+    )[0]
+
+    all_documents = []
+    all_metadatas = []
+
+    for document_id in document_ids:
+
+        results = collection.query(
+            query_embeddings=[
+                query_embedding
+            ],
+            n_results=n_results_per_document,
+            where={
+                "document_id": int(document_id)
+            },
+        )
+
+        documents = results.get(
+            "documents",
+            [[]]
+        )[0]
+
+        metadatas = results.get(
+            "metadatas",
+            [[]]
+        )[0]
+
+        all_documents.extend(
+            documents
+        )
+
+        all_metadatas.extend(
+            metadatas
+        )
+
+    return {
+        "documents": [
+            all_documents
+        ],
+        "metadatas": [
+            all_metadatas
+        ],
+    }
 
 # ============================================================
 # POSTGRESQL + PGVECTOR
@@ -251,6 +307,80 @@ def search_chunks_pgvector(
         ],
     }
 
+def search_chunks_pgvector_by_document(
+    project_id: int,
+    document_id: int,
+    query: str,
+    n_results: int = 5
+):
+
+    query_embedding = generate_embeddings(
+        [query],
+        task_type="RETRIEVAL_QUERY"
+    )[0]
+
+    query_vector = str(
+        query_embedding
+    )
+
+    search_sql = text(
+        """
+        SELECT
+            document_id,
+            page_number,
+            content,
+            1 - (
+                embedding <=> CAST(
+                    :query_embedding AS vector
+                )
+            ) AS similarity
+        FROM document_chunks
+        WHERE
+            project_id = :project_id
+            AND document_id = :document_id
+        ORDER BY
+            embedding <=> CAST(
+                :query_embedding AS vector
+            )
+        LIMIT :n_results
+        """
+    )
+
+    with engine.connect() as connection:
+
+        result = connection.execute(
+            search_sql,
+            {
+                "project_id": project_id,
+                "document_id": document_id,
+                "query_embedding": query_vector,
+                "n_results": n_results,
+            }
+        )
+
+        rows = result.mappings().all()
+
+    documents = [
+        row["content"]
+        for row in rows
+    ]
+
+    metadatas = [
+        {
+            "document_id": int(row["document_id"]),
+            "page_number": int(row["page_number"]),
+        }
+        for row in rows
+    ]
+
+    return {
+        "documents": [
+            documents
+        ],
+        "metadatas": [
+            metadatas
+        ],
+    }
 
 # ============================================================
 # PUBLIC API
@@ -301,3 +431,41 @@ def search_chunks(
         query=query,
         n_results=n_results,
     )
+
+def search_chunks_by_document(
+    project_id: int,
+    document_id: int,
+    query: str,
+    n_results: int = 5
+):
+
+    if VECTOR_STORE == "pgvector":
+
+        return search_chunks_pgvector_by_document(
+            project_id=project_id,
+            document_id=document_id,
+            query=query,
+            n_results=n_results,
+        )
+
+    # Chroma version
+    collection = get_collection(
+        project_id
+    )
+
+    query_embedding = generate_embeddings(
+        [query],
+        task_type="RETRIEVAL_QUERY"
+    )[0]
+
+    results = collection.query(
+        query_embeddings=[
+            query_embedding
+        ],
+        n_results=n_results,
+        where={
+            "document_id": document_id
+        },
+    )
+
+    return results

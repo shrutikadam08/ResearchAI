@@ -53,6 +53,9 @@ function Home() {
   const [searchError, setSearchError] =
     useState("");
 
+  const [openAccessOnly, setOpenAccessOnly] =
+    useState(false);
+
 
   // ============================================================
   // SEARCH HISTORY
@@ -373,7 +376,7 @@ function Home() {
           year: "",
 
           openAccessOnly:
-            false,
+            openAccessOnly,
 
           token:
             token || undefined,
@@ -1241,6 +1244,19 @@ function Home() {
 
               </form>
 
+              <div className="max-w-3xl mx-auto mt-4 flex justify-center">
+                <label className="inline-flex items-center gap-2 cursor-pointer text-sm text-slate-400">
+                  <input
+                    type="checkbox"
+                    checked={openAccessOnly}
+                    onChange={(event) =>
+                      setOpenAccessOnly(event.target.checked)
+                    }
+                    className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span>Open Access only</span>
+                </label>
+              </div>
 
               <p className="mt-4 text-sm text-slate-500">
 
@@ -1418,6 +1434,20 @@ function Home() {
 
               </form>
 
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <label className="inline-flex items-center gap-2 cursor-pointer text-sm text-slate-400">
+                <input
+                  type="checkbox"
+                  checked={openAccessOnly}
+                  onChange={(event) =>
+                    setOpenAccessOnly(event.target.checked)
+                  }
+                  className="h-4 w-4 rounded border-slate-600 bg-slate-900 text-blue-600 focus:ring-blue-500"
+                />
+                <span>Open Access only</span>
+              </label>
             </div>
 
 
@@ -1783,7 +1813,9 @@ function Home() {
                                     size={17}
                                   />
 
-                                  PDF
+                                  {paper.is_open_access
+                                    ? "Open Access PDF"
+                                    : "PDF"}
 
                                 </a>
 
@@ -1792,11 +1824,19 @@ function Home() {
                             </div>
 
 
-                            {paper.is_open_access && (
+                            {paper.is_open_access ? (
 
-                              <p className="mt-4 text-xs text-green-400">
+                              <p className="mt-4 text-sm font-medium text-green-400">
 
                                 ✓ Open Access
+
+                              </p>
+
+                            ) : (
+
+                              <p className="mt-4 text-sm font-medium text-yellow-400">
+
+                                🔒 Not Open Access
 
                               </p>
 

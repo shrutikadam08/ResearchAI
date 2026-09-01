@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Database / local data
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploaded files
+backend/uploads/
+
+# Chroma / vector database
+backend/chroma/
+backend/chroma_db/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Temporary project files
+backend/*_backup.txt
+backend/fix_paper18.py
+backend/project_paper_full.txt
+backend/project_paper_complete.txt
+backend/findpapers_backup.txt
+backend_backup/
+frontend_backup/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

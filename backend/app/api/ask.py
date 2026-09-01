@@ -74,7 +74,8 @@ def ask_research_agent(
     result = research_agent.invoke(
         {
             "project_id": project_id,
-            "question": request.question
+            "question": request.question,
+            "paper_ids":request.paper_ids,
         }
     )
 

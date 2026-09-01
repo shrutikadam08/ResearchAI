@@ -1,4 +1,8 @@
 import secrets
+import os
+from app.models.password_reset import PasswordResetToken
+from app.schemas.user import ResetPasswordRequest
+from app.services.email_service import send_password_reset_email
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -11,7 +15,7 @@ from app.auth.security import (
 )
 from app.database.dependencies import get_db
 from app.models.user import User
-from app.models.password_reset import PasswordResetToken
+from app.auth.security import hash_password, verify_password, create_access_token
 
 from app.schemas.user import (
     UserCreate,
@@ -166,9 +170,39 @@ def forgot_password(
     db.add(reset_token)
     db.commit()
 
+    frontend_url=os.getenv(
+        "FRONTEND_URL",
+        "http://localhost:5173"
+    )
+
+    reset_link=(
+        f"{frontend_url}/reset-password"
+        f"?token={token}"
+    )
+
+    try:
+        send_password_reset_email(
+            recipient_email=user.email,
+            reset_link=reset_link 
+        )
+
+    except Exception as error:
+        print(
+            "Password reset email failed:",
+            error
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to send password reset email."
+        )
+    
+
     return {
-        "message": "Password reset link created.",
-        "token": token
+        "message":
+        "If this email is registered,"
+        "a password reset link has been sent."
+        
     }
 
 
@@ -177,13 +211,85 @@ def forgot_password(
 # ============================================================
 
 @router.post(
-    "/reset-password"
+    "/forgot-password"
 )
+def forgot_password(
+    request: ForgotPasswordRequest,
+    db: Session = Depends(get_db)
+):
+
+    user = db.query(User).filter(
+        User.email == request.email
+    ).first()
+
+    # Do not reveal whether an email exists.
+    if not user:
+
+        return {
+            "message":
+                "If this email is registered, "
+                "a password reset link has been sent."
+        }
+
+    token = secrets.token_urlsafe(32)
+
+    expires_at = (
+        datetime.utcnow()
+        + timedelta(minutes=30)
+    )
+
+    reset_token = PasswordResetToken(
+        user_id=user.id,
+        token=token,
+        expires_at=expires_at,
+        used=False
+    )
+
+    db.add(reset_token)
+    db.commit()
+
+    frontend_url = os.getenv(
+        "FRONTEND_URL",
+        "http://localhost:5173"
+    )
+
+    reset_link = (
+        f"{frontend_url}/reset-password"
+        f"?token={token}"
+    )
+
+    try:
+
+        send_password_reset_email(
+            recipient_email=user.email,
+            reset_link=reset_link
+        )
+
+    except Exception as error:
+
+        print(
+            "Password reset email failed:",
+            error
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to send password reset email."
+        )
+
+    return {
+        "message":
+            "If this email is registered, "
+            "a password reset link has been sent."
+    }
+
+
+
+@router.post("/reset-password")
 def reset_password(
     request: ResetPasswordRequest,
     db: Session = Depends(get_db)
 ):
-
     reset_token = db.query(
         PasswordResetToken
     ).filter(
@@ -192,14 +298,12 @@ def reset_password(
     ).first()
 
     if not reset_token:
-
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired reset token."
         )
 
     if reset_token.expires_at < datetime.utcnow():
-
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired reset token."
@@ -210,7 +314,6 @@ def reset_password(
     ).first()
 
     if not user:
-
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid reset request."
@@ -227,8 +330,6 @@ def reset_password(
     return {
         "message": "Password reset successful."
     }
-
-
 # ============================================================
 # CURRENT USER
 # ============================================================

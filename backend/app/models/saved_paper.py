@@ -21,7 +21,7 @@ from app.database.base import Base
 if TYPE_CHECKING:
     from app.models.user import User
     from app.models.project_paper import ProjectPaper
-
+    from app.models.document import Document
 
 class SavedPaper(Base):
 
@@ -115,4 +115,13 @@ class SavedPaper(Base):
         "ProjectPaper",
         back_populates="saved_paper",
         cascade="all, delete-orphan"
+    )
+
+        # ==========================================================
+    # DOCUMENT RELATIONSHIP
+    # ==========================================================
+
+    documents: Mapped[list["Document"]] = relationship(
+        "Document",
+        back_populates="saved_paper"
     )

@@ -8,6 +8,11 @@ class AskRequest(BaseModel):
         max_length=2000
     )
 
+    # Optional selected papers for comparison
+    paper_ids: list[int] = Field(
+        default_factory=list
+    )
+
 
 class AskSource(BaseModel):
 

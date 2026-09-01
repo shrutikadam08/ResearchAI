@@ -8,6 +8,7 @@ from app.database.base import Base
 
 if TYPE_CHECKING:
     from app.models.project import Project
+    from app.models.saved_paper import SavedPaper
 
 class Document(Base):
     __tablename__="documents"
@@ -91,3 +92,17 @@ class Document(Base):
         "Project",
         back_populates="documents"
     )
+
+    saved_paper_id: Mapped[int | None] = mapped_column(
+    ForeignKey(
+        "saved_papers.id",
+        ondelete="SET NULL"
+    ),
+    nullable=True,
+    index=True
+)
+
+    saved_paper: Mapped["SavedPaper | None"] = relationship(
+    "SavedPaper",
+    back_populates="documents"
+)
