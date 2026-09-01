@@ -587,11 +587,10 @@ def extract_pdf_links_from_html(
     links = []
 
     hrefs = re.findall(
-    hrefs = re.findall(
-        r"href=['\"]([^'\"]+)['\"]",
+        r"""href=["']([^"']+)["']""",
         html,
         flags=re.IGNORECASE,
-    )
+    
     )
 
     for href in hrefs:
