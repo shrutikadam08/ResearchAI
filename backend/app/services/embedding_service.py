@@ -104,18 +104,20 @@ def generate_embeddings(
 
     ai_provider = os.getenv(
         "AI_PROVIDER",
-        "ollama"
+        "gemini"
     ).lower()
 
-
-    if ai_provider == "gemini":
-
-        return generate_gemini_embeddings(
-            texts,
-            task_type
+    try:
+        if ai_provider == "gemini":
+            return generate_gemini_embeddings(
+                texts,
+                task_type
         )
 
 
-    return generate_local_embeddings(
-        texts
-    )
+        return generate_local_embeddings(texts)
+
+    except Exception as error:
+        print("Embedding generatiom failed:", repr(error))
+        raise
+
