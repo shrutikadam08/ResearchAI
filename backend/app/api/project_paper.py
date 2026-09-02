@@ -1000,10 +1000,15 @@ async def download_paper_with_fallbacks(
         "====================================\n"
     )
 
+    # Return the actual candidate failures while debugging.
+    debug_errors = errors[-8:]
+
     raise RuntimeError(
-        "Unable to obtain a valid PDF from "
-        "the available paper sources."
+        "Unable to obtain a valid PDF from the available paper sources. "
+        f"Candidates tried: {len(unique_candidates)}. "
+        f"Errors: {debug_errors}"
     )
+
 
 
 # ============================================================
@@ -1449,7 +1454,7 @@ async def add_paper_to_project(
 
         print(
             "Paper processing failed:",
-            error,
+            repr(error),
         )
 
         # ----------------------------------------------------
