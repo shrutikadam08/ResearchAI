@@ -789,13 +789,21 @@ async def download_paper_with_fallbacks(
     # --------------------------------------------------------
 
     if saved_paper.pdf_url:
-
         candidates.append(
             saved_paper.pdf_url
         )
 
     # --------------------------------------------------------
-    # 2. OPENALEX LOCATIONS
+    # 2. SAVED PAPER / ARTICLE URL
+    # --------------------------------------------------------
+
+    if saved_paper.paper_url:
+        candidates.append(
+            saved_paper.paper_url
+        )
+
+    # --------------------------------------------------------
+    # 3. OPENALEX LOCATIONS
     # --------------------------------------------------------
 
     openalex_candidates = (
