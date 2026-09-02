@@ -1474,14 +1474,15 @@ async def add_paper_to_project(
             db.rollback()
 
         raise HTTPException(
-            status_code=
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-
-            detail=(
-                "The paper PDF was downloaded, "
-                "but it could not be processed "
-                "for research comparison."
-            ),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "message": (
+                    "The paper PDF was downloaded, "
+                    "but it could not be processed "
+                    "for research comparison."
+                ),
+                "error": repr(error),
+            },
         )
 
     # ========================================================
