@@ -72,6 +72,7 @@ HTTP_HEADERS = {
         "text/html,"
         "*/*"
     ),
+    "Accept-Language": "en-US,en;q=0.9",
 }
 
 
@@ -599,12 +600,20 @@ def extract_pdf_links_from_html(
         if not href:
             continue
 
-        if "pdf" not in href.lower():
-            continue
+        href_lower = href.lower()
 
-        links.append(
-            urljoin(base_url, href)
-        )
+        # Common direct-PDF patterns.
+        if (
+            "pdf" in href_lower
+            or ".pdf" in href_lower
+            or "/pdf/" in href_lower
+            or "download" in href_lower
+            or "fulltext" in href_lower
+            or "full-text" in href_lower
+        ):
+            links.append(
+                urljoin(base_url, href)
+            )
 
     # Standard academic meta tag.
     meta_matches = re.findall(
@@ -789,21 +798,24 @@ async def download_paper_with_fallbacks(
     # --------------------------------------------------------
 
     if saved_paper.pdf_url:
-        candidates.append(
-            saved_paper.pdf_url
-        )
+        candidates.append(saved_paper.pdf_url)
 
     # --------------------------------------------------------
     # 2. SAVED PAPER / ARTICLE URL
     # --------------------------------------------------------
 
     if saved_paper.paper_url:
-        candidates.append(
-            saved_paper.paper_url
-        )
+        candidates.append(saved_paper.paper_url)
 
     # --------------------------------------------------------
-    # 3. OPENALEX LOCATIONS
+    # 3. DOI URL
+    #
+    # Some SavedPaper records do not have a dedicated DOI field,
+    # so DOI discovery is handled through OpenAlex locations below.
+    # --------------------------------------------------------
+
+    # --------------------------------------------------------
+    # 4. OPENALEX LOCATIONS
     # --------------------------------------------------------
 
     openalex_candidates = (
