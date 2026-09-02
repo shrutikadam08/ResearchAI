@@ -50,8 +50,9 @@ def process_document(
             "chunks": chunks 
         }
 
-    except Exception:
-        document.processing_status="FAILED"
+    except Exception as error:
+        document.processing_status = "FAILED"
         db.commit()
+        print("DOCUMENT PROCESSING ERROR:", repr(error))
 
         raise
