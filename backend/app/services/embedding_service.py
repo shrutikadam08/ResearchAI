@@ -48,7 +48,7 @@ def generate_gemini_embeddings(
 
     batch_size = 100
 
-    for start in range(0, len(texts), git commit -m "Fix Gemini embedding batch limit"batch_size):
+    for start in range(0, len(texts), batch_size):
         batch = texts[start:start + batch_size]
 
         response = client.models.embed_content(
