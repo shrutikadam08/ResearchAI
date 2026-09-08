@@ -1212,6 +1212,35 @@ async def add_paper_to_project(
         )
 
     # ========================================================
+    # CREATE PROJECT PAPER RELATIONSHIP FIRST
+    # ========================================================
+    # IMPORTANT:
+    # The paper is added to the project before PDF/AI processing.
+    # Therefore a processing failure does not remove the paper
+    # from the project.
+
+    project_paper = ProjectPaper(
+        project_id=project_id,
+        saved_paper_id=saved_paper.id,
+    )
+
+    db.add(project_paper)
+
+    try:
+        db.commit()
+        db.refresh(project_paper)
+    except Exception as error:
+        db.rollback()
+        print(
+            "Project paper creation failed:",
+            error,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to add the paper to the project.",
+        )
+
+    # ========================================================
     # CHECK EXISTING PROCESSED DOCUMENT
     # ========================================================
 
@@ -1235,21 +1264,6 @@ async def add_paper_to_project(
         print(
             "Processed document already exists:",
             existing_document.id,
-        )
-
-        project_paper = ProjectPaper(
-            project_id=project_id,
-            saved_paper_id=saved_paper.id,
-        )
-
-        db.add(
-            project_paper
-        )
-
-        db.commit()
-
-        db.refresh(
-            project_paper
         )
 
         return project_paper
@@ -1297,17 +1311,11 @@ async def add_paper_to_project(
 
                 pass
 
-        raise HTTPException(
-            status_code=
-                status.HTTP_502_BAD_GATEWAY,
-
-            detail=(
-                "Unable to download a valid PDF "
-                "for this paper. The publisher or "
-                "repository did not provide an "
-                "accessible PDF."
-            ),
+        print(
+            "Paper was added to the project, but PDF download failed."
         )
+
+        return project_paper
 
     # ========================================================
     # EXTRACT METADATA
@@ -1473,88 +1481,10 @@ async def add_paper_to_project(
 
             db.rollback()
 
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "message": (
-                    "The paper PDF was downloaded, "
-                    "but it could not be processed "
-                    "for research comparison."
-                ),
-                "error": repr(error),
-            },
-        )
-
-    # ========================================================
-    # VERIFY PROCESSING
-    # ========================================================
-
-    if (
-        document.processing_status
-        != "PROCESSED"
-    ):
-
-        print(
-            "WARNING: Document is not PROCESSED."
-        )
-
-        print(
-            "Status:",
-            document.processing_status,
-        )
-
-        raise HTTPException(
-            status_code=
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-
-            detail=(
-                "The paper was downloaded but "
-                "was not successfully processed "
-                "for research comparison."
-            ),
-        )
-
-    # ========================================================
-    # CREATE PROJECT PAPER RELATIONSHIP
-    # ========================================================
-
-    project_paper = ProjectPaper(
-        project_id=project_id,
-
-        saved_paper_id=
-            saved_paper.id,
-    )
-
-    db.add(
-        project_paper
-    )
-
-    try:
-
-        db.commit()
-
-        db.refresh(
-            project_paper
-        )
-
-    except Exception as error:
-
-        db.rollback()
-
-        print(
-            "Project paper creation failed:",
-            error,
-        )
-
-        raise HTTPException(
-            status_code=
-                status.HTTP_500_INTERNAL_SERVER_ERROR,
-
-            detail=(
-                "Paper was processed but could "
-                "not be added to the project."
-            ),
-        )
+        # The paper is already linked to the project. Keep it there
+        # even when text extraction or embedding generation fails.
+        # process_document marks the Document as FAILED.
+        return project_paper
 
     print(
         "\n========== SUCCESS =========="
