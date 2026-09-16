@@ -1,6 +1,6 @@
 import time
-
-from ollama import chat
+import os
+from google import genai
 
 from app.services.citation_service import (
     build_citations,
@@ -12,7 +12,7 @@ from app.services.citation_service import (
 # SETTINGS
 # ============================================================
 
-OLLAMA_MODEL = "qwen3:0.6b"
+GEMINI_MODEL=os.getenv("GEMINI_MODEL","gemini-3.6-flash")
 
 MAX_EVIDENCE_ITEMS = 12
 MAX_EVIDENCE_CHARS = 18000
@@ -277,55 +277,43 @@ the research evidence.
     )
 
     # ========================================================
-    # OLLAMA
+    # GEMINI
     # ========================================================
 
     print(
-        "\nStarting Ollama..."
+        "\nStarting Gemini..."
     )
 
     print(
-        f"Ollama model: {OLLAMA_MODEL}"
+        f"Gemini model: {GEMINI_MODEL}"
     )
 
     llm_start = time.perf_counter()
 
     try:
 
-        response = chat(
+        api_key=os.getenv("GEMINI_API_KEY")
 
-            model=OLLAMA_MODEL,
+        if not api_key:
+            raise RuntimeError(
+                "GEMINI_API_KEY is not configured."
+            )
 
-            messages=[
-                {
-                    "role":
-                        "system",
+        client=genai.Client(api_key=api_key)
 
-                    "content":
-                        SYSTEM_PROMPT,
-                },
+        combined_prompt=(
+            SYSTEM_PROMPT
+            + "\n\n"
+            + user_prompt 
+        )
 
-                {
-                    "role":
-                        "user",
-
-                    "content":
-                        user_prompt,
-                },
-            ],
-
-            options={
-
-                "temperature":
-                    0,
-
-                "num_predict":
-                    1000,
-
-                "num_ctx":4096,
-
+        response=client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=combined_prompt,
+            config={
+                "temperature":0,
+                "max_output_tokens":1000,
             },
-            think=False,
         )
 
     except Exception as error:
@@ -336,12 +324,12 @@ the research evidence.
         )
 
         print(
-            f"Ollama generation failed "
+            f"Gemini generation failed "
             f"after {llm_time:.2f}s"
         )
 
         print(
-            "Ollama error:",
+            "Gemini error:",
             repr(error)
         )
 
@@ -364,16 +352,16 @@ the research evidence.
     )
 
     print(
-        f"Ollama generation time: "
+        f"Gemini generation time: "
         f"{llm_time:.2f}s"
     )
 
     # ========================================================
-    # DEBUG OLLAMA RESPONSE
+    # DEBUG GEMINI RESPONSE
     # ========================================================
 
     print(
-        "\n---------- OLLAMA RESPONSE ----------"
+        "\n---------- GEMINI RESPONSE ----------"
     )
 
     print(
@@ -399,28 +387,19 @@ the research evidence.
     try:
 
         if response is not None:
-
-            message = getattr(
-                response,
-                "message",
-                None
-            )
-
-            if message is not None:
-
-                final_answer = (
-                    getattr(
-                        message,
-                        "content",
-                        ""
-                    )
-                    or ""
+            final_answer = (
+                getattr(
+                    response,
+                    "text",
+                    ""
                 )
+                or ""
+            )
 
     except Exception as error:
 
         print(
-            "Error reading Ollama response:",
+            "Error reading Gemini response:",
             repr(error)
         )
 
